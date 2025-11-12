@@ -1,0 +1,6 @@
+# Basic config placeholder for TickLoop Autopilot
+version: 1
+name: tickloop-autopilot
+retries:
+  enabled: true
+  max: 3
