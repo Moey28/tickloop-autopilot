@@ -1,0 +1,38 @@
+name: collector-selfheal
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  selfheal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run collector (attempt 1)
+        env:
+          POLYMARKET_MARKETS_URL: ${{ secrets.POLYMARKET_MARKETS_URL }}
+        run: |
+          python .tickloop/collectors/polymarket_markets.py || true
+          python .tickloop/validate_collector.py || echo "will retry…"
+
+      - name: Run collector (attempt 2 if needed)
+        if: ${{ failure() }}
+        env:
+          POLYMARKET_MARKETS_URL: ${{ secrets.POLYMARKET_MARKETS_URL }}
+        run: |
+          sleep 5
+          python .tickloop/collectors/polymarket_markets.py || true
+          python .tickloop/validate_collector.py || echo "will retry…"
+
+      - name: Run collector (attempt 3 if needed)
+        if: ${{ failure() }}
+        env:
+          POLYMARKET_MARKETS_URL: ${{ secrets.POLYMARKET_MARKETS_URL }}
+        run: |
+          sleep 10
+          python .tickloop/collectors/polymarket_markets.py
+          python .tickloop/validate_collector.py
