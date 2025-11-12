@@ -1,0 +1,17 @@
+name: read-config-test
+
+on:
+  workflow_dispatch: {}   # lets you run it manually
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Run config test
+        run: python .tickloop/read_config.py
