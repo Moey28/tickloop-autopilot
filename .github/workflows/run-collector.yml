@@ -1,7 +1,7 @@
 name: run-collector
 
 on:
-  workflow_dispatch: {}   # run manually
+  workflow_dispatch: {}
 
 jobs:
   collect:
@@ -13,7 +13,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Optional: if you created a secret to override the endpoint, expose it here
+      - name: Show working dir
+        run: |
+          pwd
+          ls -la
+
       - name: Run Polymarket collector
         env:
           POLYMARKET_MARKETS_URL: ${{ secrets.POLYMARKET_MARKETS_URL }}
@@ -22,9 +26,9 @@ jobs:
           echo "---- repo tree after run ----"
           ls -R
 
-      # Upload the CSV so you can download it from the run page
       - name: Upload data artifact
         uses: actions/upload-artifact@v4
         with:
           name: polymarket-data
-          path: data/polymarket/**   # collects the CSV we just wrote
+          path: data/polymarket/**
+          if-no-files-found: ignore   # <— prevents failure if no CSV yet
