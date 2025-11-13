@@ -3,7 +3,7 @@
 import os, csv, json, urllib.request, time
 from datetime import datetime, timezone
 
-API_URL = os.getenv("POLYMARKET_MARKETS_URL", "https://clob.polymarket.com/markets?limit=200&offset=0")
+API_URL = os.getenv("POLYMARKET_MARKETS_URL") or "\1"
 
 def get_json(url, retries=5, backoff=1.5):
     last = None
