@@ -77,3 +77,14 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+    # Multi-AI cross-check
+    for name, key, url in [
+        ("OpenAI", os.getenv("OPENAI_API_KEY"), "https://api.openai.com/v1/chat/completions"),
+        ("Gemini", os.getenv("GEMINI_API_KEY"), "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"),
+        ("DeepSeek", os.getenv("DEEPSEEK_API_KEY"), "https://api.deepseek.com/chat/completions"),
+    ]:
+        if not key:
+            print(f"[{name}] No API key found, skipping.")
+            continue
+        print(f"[{name}] auditing latest logs...")
+        # each model can receive a short summary / fix request
