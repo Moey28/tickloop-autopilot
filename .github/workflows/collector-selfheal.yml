@@ -2,7 +2,7 @@ name: collector-selfheal
 
 on:
   schedule:
-    - cron: "0 */3 * * *"  # every 3 hours
+    - cron: "0 */3 * * *"    # every 3 hours (change to */15 * * * * for every 15 min)
   workflow_dispatch: {}
 
 jobs:
@@ -43,12 +43,37 @@ jobs:
           python .tickloop/collectors/polymarket_markets.py
           python .tickloop/validate_collector.py
 
-      - name: AI audit & self-heal (OpenAI)
-        if: ${{ always() }}
+      - name: Install deps for supervisor (requests)
+        run: python - <<'PY'
+import sys, subprocess
+subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "requests"])
+print("deps ok")
+PY
+
+      - name: AI audit & self-heal (OpenAI + Serper)
+        if: ${{ always() }}    # run even on success
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          POLYMARKET_MARKETS_URL: ${{ secrets.POLYMARKET_MARKETS_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python .tickloop/supervisor.py
+
+      - name: Upload data artifact (CSV snapshot)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: polymarket-data
+          path: data/polymarket/**
+          if-no-files-found: warn
+
+      - name: Upload supervisor heartbeat
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: supervisor-heartbeat
+          path: .tickloop/heartbeat.log
+          if-no-files-found: warn
