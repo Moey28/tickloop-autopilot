@@ -1,9 +1,30 @@
+#!/usr/bin/env python3
 # Minimal Polymarket markets fetcher (no external deps).
-# Writes a CSV under data/polymarket/markets/dt=YYYY-MM-DD/markets.csv
-import os, csv, json, urllib.request, time
-from datetime import datetime, timezone
+# Writes:
+#  - data/polymarket/markets/dt=YYYY-MM-DD/markets.csv   (daily partition)
+#  - data/polymarket/latest.csv                           (rolling pointer)
+#  - data/polymarket/YYYY-MM-DDTHH-MM-SSZ_polymarket_markets.csv  (immutable snapshot)
 
-API_URL = os.getenv("POLYMARKET_MARKETS_URL") or "\1"
+import os, csv, json, urllib.request, time, string
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import urlparse
+
+DEFAULT_URL = "https://clob.polymarket.com/markets?limit=200&offset=0"
+
+def clean_url(raw: str) -> str:
+    raw = (raw or "").strip()
+    # strip non-printable chars that sometimes creep into secrets
+    cleaned = "".join(ch for ch in raw if ch in string.printable)
+    try:
+        u = urlparse(cleaned)
+        if u.scheme in ("http", "https") and u.netloc:
+            return cleaned
+    except Exception:
+        pass
+    return DEFAULT_URL
+
+API_URL = clean_url(os.getenv("POLYMARKET_MARKETS_URL"))
 
 def get_json(url, retries=5, backoff=1.5):
     last = None
@@ -46,26 +67,42 @@ def norm_row(m):
         "createdTime": g("createdTime","created_at","createdAt"),
     }
 
+def write_csv(rows, path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    headers = list(rows[0].keys()) if rows else [
+        "id","slug","question","category","closed","end_date","end_date_iso",
+        "volume","liquidity","yes_price","no_price","createdTime"
+    ]
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=headers)
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
 def main():
     data = get_json(API_URL)
     rows = data.get("data", data) if isinstance(data, dict) else data
     rows = rows or []
     out_rows = [norm_row(m) for m in rows]
 
+    # A) your original daily partition
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    out_dir = f"data/polymarket/markets/dt={today}"
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = f"{out_dir}/markets.csv"
+    daily_path = Path(f"data/polymarket/markets/dt={today}/markets.csv")
+    write_csv(out_rows, daily_path)
 
-    with open(out_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=list(out_rows[0].keys()) if out_rows else [
-            "id","slug","question","category","closed","end_date","end_date_iso","volume","liquidity","yes_price","no_price","createdTime"
-        ])
-        w.writeheader()
-        for r in out_rows:
-            w.writerow(r)
+    # B) rolling "latest.csv"
+    latest_path = Path("data/polymarket/latest.csv")
+    write_csv(out_rows, latest_path)
 
-    print(f"[polymarket] wrote {len(out_rows)} rows → {out_path}")
+    # C) immutable snapshot with UTC timestamp
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    snap_path = Path(f"data/polymarket/{ts}_polymarket_markets.csv")
+    write_csv(out_rows, snap_path)
+
+    print(f"[polymarket] wrote {len(out_rows)} rows →")
+    print(f"  - {daily_path}")
+    print(f"  - {latest_path}")
+    print(f"  - {snap_path}")
     return 0
 
 if __name__ == "__main__":
