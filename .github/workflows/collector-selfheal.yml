@@ -8,6 +8,10 @@ on:
 jobs:
   selfheal:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,30 +42,9 @@ jobs:
           sleep 10
           python .tickloop/collectors/polymarket_markets.py
           python .tickloop/validate_collector.py
-          name: collector-selfheal
-
-on:
-  schedule:
-    - cron: "0 */3 * * *"
-  workflow_dispatch: {}
-
-jobs:
-  selfheal:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write    # <— allow auto-commit/push
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      # ... your 3 attempt steps remain here ...
 
       - name: AI audit & self-heal (OpenAI)
-        if: ${{ always() }}    # <— run even on success
+        if: ${{ always() }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           POLYMARKET_MARKETS_URL: ${{ secrets.POLYMARKET_MARKETS_URL }}
@@ -69,4 +52,3 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python .tickloop/supervisor.py
-
