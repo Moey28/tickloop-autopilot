@@ -2,7 +2,7 @@ name: collector-selfheal
 
 on:
   schedule:
-    - cron: "0 */3 * * *"    # every 3 hours (change to */15 * * * * for every 15 min)
+    - cron: "0 */3 * * *"    # every 3 hours
   workflow_dispatch: {}
 
 jobs:
@@ -43,15 +43,13 @@ jobs:
           python .tickloop/collectors/polymarket_markets.py
           python .tickloop/validate_collector.py
 
+      # ✅ fixed: no heredoc; simple, valid YAML
       - name: Install deps for supervisor (requests)
-        run: python - <<'PY'
-import sys, subprocess
-subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "requests"])
-print("deps ok")
-PY
+        run: |
+          python -m pip install --quiet requests
 
       - name: AI audit & self-heal (OpenAI + Serper)
-        if: ${{ always() }}    # run even on success
+        if: ${{ always() }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
